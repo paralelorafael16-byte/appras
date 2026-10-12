@@ -128,13 +128,17 @@
 
         // ⚡ Subscrição WebSocket em tempo real para a tabela 'veiculos_atual'
         supabaseClient
-            .channel('public:veiculos_atual')
+            .channel('changes-veiculos-atual')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'veiculos_atual' }, payload => {
                 if (payload.new) {
                     atualizarInterface(payload.new);
                 }
             })
-            .subscribe();
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('Conectado ao Realtime do Supabase!');
+                }
+            });
     </script>
 </body>
 </html>
