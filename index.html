@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -65,28 +65,14 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycHZtZWF1cnFsdXJqd3lsY29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3NDcyNzQsImV4cCI6MjEwNzMyMzI3NH0.2w9KvzwX3XG0t2-AV5HK2sPuLH23WlUK_rLyhj_HNiM";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Inicializar o Mapa centralizado em Curitiba / São José dos Pinhais
+        // Inicializar o Mapa centralizado em São José dos Pinhais / Curitiba
         const map = L.map('map').setView([-25.5350, -49.1920], 15);
 
-        // 🔑 Cole aqui a sua Public Token do Mapbox (que começa por "pk.")
-        const MAPBOX_TOKEN = "SUA_MAPBOX_TOKEN_AQUI";
-
-        // Configuração inteligente do TileLayer
-        if (MAPBOX_TOKEN && MAPBOX_TOKEN !== "SUA_MAPBOX_TOKEN_AQUI") {
-            L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`, {
-                tileSize: 512,
-                zoomOffset: -1,
-                maxZoom: 22,
-                attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }).addTo(map);
-        } else {
-            // Fallback para mapa escuro sem exigir token de imediato
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                subdomains: 'abcd',
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
-            }).addTo(map);
-        }
+        // Camada de mapa escuro da Esri (gratuita e sem necessidade de tokens)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+            maxZoom: 19
+        }).addTo(map);
 
         let marker = null;
 
@@ -119,7 +105,7 @@
                 marker.setPopupContent(`<b>IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`);
             }
 
-            // Centraliza o mapa acompanhando o movimento do veículo
+            // Centraliza o mapa a acompanhar o movimento do veículo
             map.panTo(latLng);
         }
 
@@ -144,6 +130,7 @@
         supabaseClient
             .channel('public:telemetria_veiculos')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetria_veiculos' }, payload => {
+                atualizarInstance = payload.new;
                 atualizarInterface(payload.new);
             })
             .subscribe();
