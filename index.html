@@ -68,10 +68,11 @@
         // Inicializar o Mapa centralizado em São José dos Pinhais / Curitiba
         const map = L.map('map').setView([-25.5350, -49.1920], 15);
 
-        // Camada de mapa escuro da Esri (gratuita e sem necessidade de tokens)
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
-            maxZoom: 19
+        // 🗺️ Camada do Google Maps Road (Mapa padrão de ruas do Google)
+        L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '&copy; Google Maps'
         }).addTo(map);
 
         let marker = null;
@@ -130,7 +131,6 @@
         supabaseClient
             .channel('public:telemetria_veiculos')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetria_veiculos' }, payload => {
-                atualizarInstance = payload.new;
                 atualizarInterface(payload.new);
             })
             .subscribe();
