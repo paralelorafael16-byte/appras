@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreamento J16 - Live Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 text-white h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center shadow-md z-20">
+        <h1 class="text-xl font-bold flex items-center gap-2">
+            🛰️ Rastreamento J16 
+            <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30">Em Direto</span>
+        </h1>
+        <div id="status-veiculo" class="text-sm text-gray-400 font-medium">A aguardar sinal do rastreador...</div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar / Telemetria -->
+        <aside class="w-80 bg-gray-800 border-r border-gray-700 p-6 flex flex-col gap-4 overflow-y-auto z-10 shadow-lg">
+            <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80">
+                <h2 class="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Dispositivo</h2>
+                <p id="info-imei" class="font-mono text-emerald-400 font-bold text-sm">IMEI: --</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80">
+                    <span class="text-xs text-gray-400">Velocidade</span>
+                    <p id="info-speed" class="text-2xl font-black text-white mt-1">0 <span class="text-xs font-normal text-gray-400">km/h</span></p>
+                </div>
+                <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80">
+                    <span class="text-xs text-gray-400">Ignição</span>
+                    <p id="info-ignition" class="text-base font-bold text-gray-400 mt-1">--</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80 flex-1 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-2">Coordenadas Atuais</h3>
+                    <p id="info-coords" class="text-xs font-mono text-gray-300 break-all leading-relaxed">Lat: --<br>Lng: --</p>
+                </div>
+                <p id="info-time" class="text-[10px] text-gray-500 mt-4">Última atualização: --</p>
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <main class="flex-1 relative">
+            <div id="map" class="w-full h-full z-0"></div>
+        </main>
+    </div>
+
+    <script>
+        // Credenciais do Supabase configuradas
+        const SUPABASE_URL = "https://zrpvmeaurqlurjwylcoq.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycHZtZWF1cnFsdXJqd3lsY29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3NDcyNzQsImV4cCI6MjEwNzMyMzI3NH0.2w9KvzwX3XG0t2-AV5HK2sPuLH23WlUK_rLyhj_HNiM";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Inicializar o Mapa centralizado em São José dos Pinhais / Curitiba
+        const map = L.map('map').setView([-25.5350, -49.1920], 15);
+
+        // 🗺️ Camada Mapbox Dark (Substitua "SUA_MAPBOX_TOKEN_AQUI" pelo seu token gratuito do Mapbox)
+        const MAPBOX_TOKEN = "SUA_MAPBOX_TOKEN_AQUI";
+        
+        L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`, {
+            tileSize: 512,
+            zoomOffset: -1,
+            maxZoom: 22,
+            attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        let marker = null;
+
+        // Função para atualizar a interface com os dados do J16
+        function atualizarInterface(dados) {
+            const { imei, latitude, longitude, speed, ignition, created_at } = dados;
+
+            document.getElementById('info-imei').innerText = `IMEI: ${imei}`;
+            document.getElementById('info-speed').innerHTML = `${speed} <span class="text-xs font-normal text-gray-400">km/h</span>`;
+            
+            const ignElem = document.getElementById('info-ignition');
+            if (ignition) {
+                ignElem.innerText = "Ligada";
+                ignElem.className = "text-base font-bold text-emerald-400 mt-1";
+            } else {
+                ignElem.innerText = "Desligada";
+                ignElem.className = "text-base font-bold text-red-400 mt-1";
+            }
+
+            document.getElementById('info-coords').innerHTML = `Lat: ${latitude.toFixed(6)}<br>Lng: ${longitude.toFixed(6)}`;
+            document.getElementById('info-time').innerText = `Atualizado: ${new Date(created_at).toLocaleTimeString()}`;
+            document.getElementById('status-veiculo').innerText = "🟢 Online (Tempo Real)";
+
+            const latLng = [latitude, longitude];
+            if (!marker) {
+                marker = L.marker(latLng).addTo(map);
+                marker.bindPopup(`<b>IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`).openPopup();
+            } else {
+                marker.setLatLng(latLng);
+                marker.setPopupContent(`<b>IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`);
+            }
+
+            // Centralizar o mapa suavemente a acompanhar o veículo
+            map.panTo(latLng);
+        }
+
+        // Carregar a última posição gravada ao abrir a página
+        async function carregarUltimaPosicao() {
+            const { data, error } = await supabaseClient
+                .from('telemetria_veiculos')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (data && data.length > 0) {
+                atualizarInterface(data[0]);
+            } else {
+                document.getElementById('status-veiculo').innerText = "🟡 A aguardar dados do simulador...";
+            }
+        }
+
+        carregarUltimaPosicao();
+
+        // ⚡ Ouvir novos registos em tempo real via WebSocket do Supabase
+        supabaseClient
+            .channel('public:telemetria_veiculos')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetria_veiculos' }, payload => {
+                atualizarInterface(payload.new);
+            })
+            .subscribe();
+    </script>
+</body>
+</html>
