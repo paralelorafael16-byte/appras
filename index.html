@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rastreamento J16 - Live Dashboard</title>
+    <title>Rastreamento J16 - Smart Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Leaflet CSS -->
@@ -13,43 +13,78 @@
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-gray-900 text-white h-screen flex flex-col overflow-hidden">
+<body class="bg-gray-950 text-white h-screen flex flex-col overflow-hidden font-sans">
 
-    <!-- Header -->
-    <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center shadow-md z-20">
-        <h1 class="text-xl font-bold flex items-center gap-2">
-            🛰️ Rastreamento J16 
-            <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30">Em Direto</span>
+    <!-- Header / Barra Superior -->
+    <header class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center shadow-lg z-20">
+        <h1 class="text-lg font-bold flex items-center gap-2">
+            ⚡ Scooter Tracker Pro 
+            <span id="badge-status" class="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1.5 font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Online (Tempo Real)
+            </span>
         </h1>
-        <div id="status-veiculo" class="text-sm text-gray-400 font-medium">A aguardar sinal do rastreador...</div>
+        <div id="status-veiculo" class="text-xs text-gray-400 font-mono">A aguardar dados do dispositivo...</div>
     </header>
 
     <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden">
-        <!-- Sidebar / Telemetria -->
-        <aside class="w-80 bg-gray-800 border-r border-gray-700 p-6 flex flex-col gap-4 overflow-y-auto z-10 shadow-lg">
-            <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80">
-                <h2 class="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Dispositivo</h2>
-                <p id="info-imei" class="font-mono text-emerald-400 font-bold text-sm">IMEI: --</p>
+        
+        <!-- Sidebar / Painel de Controlo do Cliente -->
+        <aside class="w-96 bg-gray-900 border-r border-gray-800 p-5 flex flex-col gap-4 overflow-y-auto z-10 shadow-2xl">
+            
+            <!-- Dispositivo Info -->
+            <div class="bg-gray-800/70 p-4 rounded-xl border border-gray-700/60 shadow-inner">
+                <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold block mb-1">Dispositivo Conectado</span>
+                <p id="info-imei" class="font-mono text-emerald-400 font-bold text-sm tracking-wider">IMEI: --</p>
             </div>
 
+            <!-- Grid de Métricas (Velocidade, Ignição, Bateria) -->
             <div class="grid grid-cols-2 gap-3">
-                <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80">
-                    <span class="text-xs text-gray-400">Velocidade</span>
+                <div class="bg-gray-800/70 p-3.5 rounded-xl border border-gray-700/60">
+                    <span class="text-[11px] text-gray-400 block">Velocidade</span>
                     <p id="info-speed" class="text-2xl font-black text-white mt-1">0 <span class="text-xs font-normal text-gray-400">km/h</span></p>
                 </div>
-                <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80">
-                    <span class="text-xs text-gray-400">Ignição</span>
-                    <p id="info-ignition" class="text-base font-bold text-gray-400 mt-1">--</p>
+                <div class="bg-gray-800/70 p-3.5 rounded-xl border border-gray-700/60">
+                    <span class="text-[11px] text-gray-400 block">Ignição</span>
+                    <p id="info-ignition" class="text-sm font-bold text-gray-400 mt-2">--</p>
                 </div>
             </div>
 
-            <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700/80 flex-1 flex flex-col justify-between">
+            <!-- Bateria da Scooter -->
+            <div class="bg-gray-800/70 p-4 rounded-xl border border-gray-700/60 flex items-center justify-between">
                 <div>
-                    <h3 class="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-2">Coordenadas Atuais</h3>
+                    <span class="text-[11px] text-gray-400 block">Bateria Principal (DC)</span>
+                    <p id="info-battery" class="text-lg font-bold text-white mt-0.5">-- V</p>
+                </div>
+                <div class="text-2xl">🔋</div>
+            </div>
+
+            <!-- Painel de Ações de Segurança / Comandos Remotos -->
+            <div class="bg-gray-800/70 p-4 rounded-xl border border-gray-700/60 flex flex-col gap-3">
+                <span class="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Segurança & Controlo</span>
+                <button id="btn-bloqueio" onclick="alternarBloqueio()" class="w-full py-2.5 px-4 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30">
+                    🔒 Bloquear Motor (Anti-Furto)
+                </button>
+            </div>
+
+            <!-- Histórico e Trajeto -->
+            <div class="bg-gray-800/70 p-4 rounded-xl border border-gray-700/60 flex flex-col gap-3">
+                <span class="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Histórico de Rotas</span>
+                <button onclick="carregarHistoricoTrajeto()" class="w-full py-2.5 px-4 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30">
+                    🗺️ Desenhar Histórico de Trajeto
+                </button>
+                <button onclick="limparHistoricoTrajeto()" class="w-full py-1.5 px-4 rounded-lg font-medium text-[11px] text-gray-400 hover:bg-gray-700/50 transition-all">
+                    Limpar Trajeto do Mapa
+                </button>
+            </div>
+
+            <!-- Coordenadas Atuais & Atualização -->
+            <div class="bg-gray-800/70 p-4 rounded-xl border border-gray-700/60 flex-1 flex flex-col justify-between mt-auto">
+                <div>
+                    <span class="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block mb-1.5">Coordenadas Atuais</span>
                     <p id="info-coords" class="text-xs font-mono text-gray-300 break-all leading-relaxed">Lat: --<br>Lng: --</p>
                 </div>
-                <p id="info-time" class="text-[10px] text-gray-500 mt-4">Última atualização: --</p>
+                <p id="info-time" class="text-[10px] text-gray-500 mt-4 border-t border-gray-700/50 pt-2">Última atualização: --</p>
             </div>
         </aside>
 
@@ -65,10 +100,10 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycHZtZWF1cnFsdXJqd3lsY29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3NDcyNzQsImV4cCI6MjEwNzMyMzI3NH0.2w9KvzwX3XG0t2-AV5HK2sPuLH23WlUK_rLyhj_HNiM";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Inicializar o Mapa centralizado em São José dos Pinhais / Curitiba
+        // Inicializar o Mapa centralizado em Curitiba / São José dos Pinhais
         const map = L.map('map').setView([-25.5350, -49.1920], 15);
 
-        // 🗺️ Camada de Ruas do Google Maps
+        // Camada Google Maps
         L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             maxZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
@@ -76,43 +111,121 @@
         }).addTo(map);
 
         let marker = null;
+        let polylineHistorico = null;
+        let imeiAtual = null;
+        let estadoBloqueioAtual = false;
 
-        // Função para atualizar os elementos na interface
+        // Função para atualizar a interface com os dados do veículo
         function atualizarInterface(dados) {
-            const { imei, latitude, longitude, speed, ignition, updated_at } = dados;
+            const { imei, latitude, longitude, speed, ignition, battery_voltage, blocked, updated_at } = dados;
+            imeiAtual = imei;
+            estadoBloqueioAtual = blocked;
 
             document.getElementById('info-imei').innerText = `IMEI: ${imei}`;
             document.getElementById('info-speed').innerHTML = `${speed} <span class="text-xs font-normal text-gray-400">km/h</span>`;
             
+            // Ignição
             const ignElem = document.getElementById('info-ignition');
             if (ignition) {
-                ignElem.innerText = "Ligada";
-                ignElem.className = "text-base font-bold text-emerald-400 mt-1";
+                ignElem.innerText = "Ligada 🟢";
+                ignElem.className = "text-sm font-bold text-emerald-400 mt-2";
             } else {
-                ignElem.innerText = "Desligada";
-                ignElem.className = "text-base font-bold text-red-400 mt-1";
+                ignElem.innerText = "Desligada 🔴";
+                ignElem.className = "text-sm font-bold text-red-400 mt-2";
+            }
+
+            // Bateria
+            const batElem = document.getElementById('info-battery');
+            batElem.innerText = `${battery_voltage ? battery_voltage.toFixed(1) : '60.0'} V`;
+
+            // Estado do Botão de Bloqueio
+            const btnBloqueio = document.getElementById('btn-bloqueio');
+            if (blocked) {
+                btnBloqueio.className = "w-full py-2.5 px-4 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30";
+                btnBloqueio.innerHTML = "🔓 Desbloquear Motor";
+            } else {
+                btnBloqueio.className = "w-full py-2.5 px-4 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30";
+                btnBloqueio.innerHTML = "🔒 Bloquear Motor (Anti-Furto)";
             }
 
             document.getElementById('info-coords').innerHTML = `Lat: ${latitude.toFixed(6)}<br>Lng: ${longitude.toFixed(6)}`;
-            document.getElementById('info-time').innerText = `Atualizado: ${new Date(updated_at || Date.now()).toLocaleTimeString()}`;
-            document.getElementById('status-veiculo').innerText = "🟢 Online (Tempo Real)";
+            document.getElementById('info-time').innerText = `Última atualização: ${new Date(updated_at || Date.now()).toLocaleTimeString()}`;
+            document.getElementById('status-veiculo').innerText = "Atualizado em tempo real";
 
             const latLng = [latitude, longitude];
             if (!marker) {
                 marker = L.marker(latLng).addTo(map);
-                marker.bindPopup(`<b>IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`).openPopup();
+                marker.bindPopup(`<b>Scooter IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`).openPopup();
             } else {
                 marker.setLatLng(latLng);
-                marker.setPopupContent(`<b>IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`);
+                marker.setPopupContent(`<b>Scooter IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`);
             }
 
-            // Centraliza o mapa acompanhando o movimento do veículo
             map.panTo(latLng);
         }
 
-        // Carregar a última posição da tabela de estado atual ao iniciar
-        async function carregarUltimaPosicao() {
+        // Enviar comando de Bloqueio / Desbloqueio
+        async function alternarBloqueio() {
+            if (!imeiAtual) return alert("Nenhum dispositivo detetado ainda.");
+            
+            const novoEstado = !estadoBloqueioAtual;
+            const acaoStr = novoEstado ? "BLOQUEAR" : "DESBLOQUEAR";
+
+            // Atualiza na tabela atual
+            const { error } = await supabaseClient
+                .from('veiculos_atual')
+                .update({ blocked: novoEstado })
+                .eq('imei', imeiAtual);
+
+            // Regista o comando na tabela de comandos
+            await supabaseClient
+                .from('veiculos_comandos')
+                .insert([{ imei: imeiAtual, comando: acaoStr, status: 'ENVIADO' }]);
+
+            if (error) {
+                alert("Erro ao enviar comando.");
+            } else {
+                alert(`Comando de ${acaoStr} enviado com sucesso para a scooter!`);
+            }
+        }
+
+        // Carregar e desenhar o histórico de trajeto no mapa
+        async function carregarHistoricoTrajeto() {
+            if (!imeiAtual) return alert("Aguardando dados do dispositivo...");
+
             const { data, error } = await supabaseClient
+                .from('telemetria_historico')
+                .select('latitude, longitude')
+                .eq('imei', imeiAtual)
+                .order('created_at', { ascending: true })
+                .limit(200);
+
+            if (error || !data || data.length === 0) {
+                return alert("Nenhum histórico encontrado para este dispositivo.");
+            }
+
+            const pontos = data.map(p => [p.latitude, p.longitude]);
+
+            if (polylineHistorico) {
+                map.removeLayer(polylineHistorico);
+            }
+
+            polylineHistorico = L.polyline(pontos, { color: '#3b82f6', weight: 4, opacity: 0.8 }).addTo(map);
+            map.fitBounds(polylineHistorico.getBounds());
+            alert(`Trajeto carregado com ${data.length} pontos gravados no histórico.`);
+        }
+
+        function limparHistoricoTrajeto() {
+            if (polylineHistorico) {
+                map.removeLayer(polylineHistorico);
+                polylineHistorico = null;
+                alert("Trajeto removido do mapa.");
+            }
+        }
+
+        // Carregar posição inicial ao abrir
+        async function carregarUltimaPosicao() {
+            const { data } = await supabaseClient
                 .from('veiculos_atual')
                 .select('*')
                 .limit(1);
@@ -126,19 +239,15 @@
 
         carregarUltimaPosicao();
 
-        // ⚡ Subscrição WebSocket em tempo real para a tabela 'veiculos_atual'
+        // Subscrição em tempo real para mudanças no veículo
         supabaseClient
-            .channel('changes-veiculos-atual')
+            .channel('dashboard-cliente')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'veiculos_atual' }, payload => {
                 if (payload.new) {
                     atualizarInterface(payload.new);
                 }
             })
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log('Conectado ao Realtime do Supabase!');
-                }
-            });
+            .subscribe();
     </script>
 </body>
 </html>
