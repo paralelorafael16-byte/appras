@@ -60,27 +60,37 @@
     </div>
 
     <script>
-        // Credenciais do Supabase configuradas
+        // Credenciais do Supabase
         const SUPABASE_URL = "https://zrpvmeaurqlurjwylcoq.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycHZtZWF1cnFsdXJqd3lsY29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3NDcyNzQsImV4cCI6MjEwNzMyMzI3NH0.2w9KvzwX3XG0t2-AV5HK2sPuLH23WlUK_rLyhj_HNiM";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Inicializar o Mapa centralizado em São José dos Pinhais / Curitiba
+        // Inicializar o Mapa centralizado em Curitiba / São José dos Pinhais
         const map = L.map('map').setView([-25.5350, -49.1920], 15);
 
-        // 🗺️ Camada Mapbox Dark (Substitua "SUA_MAPBOX_TOKEN_AQUI" pelo seu token gratuito do Mapbox)
+        // 🔑 Cole aqui a sua Public Token do Mapbox (que começa por "pk.")
         const MAPBOX_TOKEN = "SUA_MAPBOX_TOKEN_AQUI";
-        
-        L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`, {
-            tileSize: 512,
-            zoomOffset: -1,
-            maxZoom: 22,
-            attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+
+        // Configuração inteligente do TileLayer
+        if (MAPBOX_TOKEN && MAPBOX_TOKEN !== "SUA_MAPBOX_TOKEN_AQUI") {
+            L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`, {
+                tileSize: 512,
+                zoomOffset: -1,
+                maxZoom: 22,
+                attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+        } else {
+            // Fallback para mapa escuro sem exigir token de imediato
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd',
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
+        }
 
         let marker = null;
 
-        // Função para atualizar a interface com os dados do J16
+        // Função para atualizar os elementos na interface
         function atualizarInterface(dados) {
             const { imei, latitude, longitude, speed, ignition, created_at } = dados;
 
@@ -109,11 +119,11 @@
                 marker.setPopupContent(`<b>IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`);
             }
 
-            // Centralizar o mapa suavemente a acompanhar o veículo
+            // Centraliza o mapa acompanhando o movimento do veículo
             map.panTo(latLng);
         }
 
-        // Carregar a última posição gravada ao abrir a página
+        // Procura a última posição no Supabase ao iniciar
         async function carregarUltimaPosicao() {
             const { data, error } = await supabaseClient
                 .from('telemetria_veiculos')
@@ -130,7 +140,7 @@
 
         carregarUltimaPosicao();
 
-        // ⚡ Ouvir novos registos em tempo real via WebSocket do Supabase
+        // Subscrição WebSocket em tempo real para novos pontos inseridos
         supabaseClient
             .channel('public:telemetria_veiculos')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetria_veiculos' }, payload => {
