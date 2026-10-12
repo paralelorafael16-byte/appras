@@ -68,7 +68,7 @@
         // Inicializar o Mapa centralizado em São José dos Pinhais / Curitiba
         const map = L.map('map').setView([-25.5350, -49.1920], 15);
 
-        // 🗺️ Camada do Google Maps Road (Mapa padrão de ruas do Google)
+        // 🗺️ Camada de Ruas do Google Maps
         L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             maxZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
@@ -79,7 +79,7 @@
 
         // Função para atualizar os elementos na interface
         function atualizarInterface(dados) {
-            const { imei, latitude, longitude, speed, ignition, created_at } = dados;
+            const { imei, latitude, longitude, speed, ignition, updated_at } = dados;
 
             document.getElementById('info-imei').innerText = `IMEI: ${imei}`;
             document.getElementById('info-speed').innerHTML = `${speed} <span class="text-xs font-normal text-gray-400">km/h</span>`;
@@ -94,7 +94,7 @@
             }
 
             document.getElementById('info-coords').innerHTML = `Lat: ${latitude.toFixed(6)}<br>Lng: ${longitude.toFixed(6)}`;
-            document.getElementById('info-time').innerText = `Atualizado: ${new Date(created_at).toLocaleTimeString()}`;
+            document.getElementById('info-time').innerText = `Atualizado: ${new Date(updated_at || Date.now()).toLocaleTimeString()}`;
             document.getElementById('status-veiculo').innerText = "🟢 Online (Tempo Real)";
 
             const latLng = [latitude, longitude];
@@ -106,16 +106,15 @@
                 marker.setPopupContent(`<b>IMEI: ${imei}</b><br>Velocidade: ${speed} km/h`);
             }
 
-            // Centraliza o mapa a acompanhar o movimento do veículo
+            // Centraliza o mapa acompanhando o movimento do veículo
             map.panTo(latLng);
         }
 
-        // Procura a última posição no Supabase ao iniciar
+        // Carregar a última posição da tabela de estado atual ao iniciar
         async function carregarUltimaPosicao() {
             const { data, error } = await supabaseClient
-                .from('telemetria_veiculos')
+                .from('veiculos_atual')
                 .select('*')
-                .order('created_at', { ascending: false })
                 .limit(1);
 
             if (data && data.length > 0) {
@@ -127,11 +126,13 @@
 
         carregarUltimaPosicao();
 
-        // Subscrição WebSocket em tempo real para novos pontos inseridos
+        // ⚡ Subscrição WebSocket em tempo real para a tabela 'veiculos_atual'
         supabaseClient
-            .channel('public:telemetria_veiculos')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetria_veiculos' }, payload => {
-                atualizarInterface(payload.new);
+            .channel('public:veiculos_atual')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'veiculos_atual' }, payload => {
+                if (payload.new) {
+                    atualizarInterface(payload.new);
+                }
             })
             .subscribe();
     </script>
